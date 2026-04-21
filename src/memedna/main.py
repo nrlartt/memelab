@@ -10,7 +10,8 @@ from apscheduler.executors.pool import ThreadPoolExecutor
 from apscheduler.schedulers.background import BackgroundScheduler
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import ORJSONResponse
+from fastapi.responses import FileResponse, ORJSONResponse
+from fastapi.staticfiles import StaticFiles
 from loguru import logger
 from sqlalchemy import func, select, text
 
@@ -212,16 +213,6 @@ async def _shutdown() -> None:
     if _scheduler is not None:
         _scheduler.shutdown(wait=False)
         _scheduler = None
-
-
-@app.get("/", tags=["meta"])
-def root() -> dict:
-    return {
-        "name": "MemeLab",
-        "tagline": "MemeLab decodes the origin, evolution, and dominance of meme tokens.",
-        "version": "0.1.0",
-        "docs": "/docs",
-    }
 
 
 @app.get("/healthz", tags=["meta"])
@@ -495,3 +486,52 @@ app.include_router(explorer_router)
 app.include_router(wallet_router)
 app.include_router(lab_report_router)
 app.include_router(admin_router)
+
+# ── Frontend static file serving ──────────────────────────────────────────────
+# Mount the Next.js build artefacts so the UI is served from the same origin
+# as the API. The build stage copies these directories into /app/frontend/.
+#
+# Mount order matters: more-specific paths must be mounted before catch-alls.
+#   /_next/static/ → compiled JS/CSS chunks produced by `next build`
+#   /               → public/ assets (favicon, images, etc.)
+#   catch-all GET   → serves the pre-rendered root HTML for every other path
+#                     so that Next.js client-side routing takes over in the
+#                     browser (deep links, dynamic routes, etc.)
+
+_FRONTEND_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "frontend")
+_NEXT_STATIC_DIR = os.path.join(_FRONTEND_DIR, ".next", "static")
+_PUBLIC_DIR = os.path.join(_FRONTEND_DIR, "public")
+_INDEX_HTML = os.path.join(_FRONTEND_DIR, ".next", "server", "app", "index.html")
+# Next.js 13+ App Router writes the root page as `page.html` inside the
+# server output directory. Fall back gracefully if the file name differs.
+_ROOT_PAGE_HTML = os.path.join(_FRONTEND_DIR, ".next", "server", "app", "page.html")
+
+if os.path.isdir(_NEXT_STATIC_DIR):
+    app.mount("/_next/static", StaticFiles(directory=_NEXT_STATIC_DIR), name="next-static")
+    logger.info("Mounted Next.js static assets from {}", _NEXT_STATIC_DIR)
+
+if os.path.isdir(_PUBLIC_DIR):
+    app.mount("/public", StaticFiles(directory=_PUBLIC_DIR), name="next-public")
+    logger.info("Mounted Next.js public directory from {}", _PUBLIC_DIR)
+
+
+def _resolve_frontend_html() -> str | None:
+    """Return the path to the pre-rendered Next.js root HTML, or None."""
+    for candidate in (_INDEX_HTML, _ROOT_PAGE_HTML):
+        if os.path.isfile(candidate):
+            return candidate
+    return None
+
+
+@app.get("/{full_path:path}", include_in_schema=False)
+async def serve_frontend(full_path: str) -> FileResponse:
+    """Catch-all: serve the Next.js pre-rendered root page for every path that
+    is not matched by an API route above.  The browser-side Next.js runtime
+    then takes over and renders the correct page via client-side routing."""
+    html_path = _resolve_frontend_html()
+    if html_path is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Frontend not built. Run `npm run build` inside frontend/.",
+        )
+    return FileResponse(html_path, media_type="text/html")
