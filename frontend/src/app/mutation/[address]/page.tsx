@@ -21,7 +21,14 @@ import { StrainBadge } from "@/components/strain-badge";
 import { MutationFingerprint } from "@/components/mutation-fingerprint";
 import { FamilyRank } from "@/components/family-rank";
 import { SocialMentions } from "@/components/social-mentions";
-import { formatNumber, formatPrice, formatUsd, shortAddress, timeAgo } from "@/lib/format";
+import {
+  formatNumber,
+  formatPrice,
+  formatUsd,
+  formatUtc,
+  shortAddress,
+  timeAgo,
+} from "@/lib/format";
 import { TokenAvatar } from "@/components/token-avatar";
 
 type Props = { params: Promise<{ address: string }> };
