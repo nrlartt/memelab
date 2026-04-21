@@ -9,8 +9,6 @@ import { StatStrip, type Stat } from "@/components/stat-strip";
 import { api } from "@/lib/api";
 import { formatNumber, formatUsd } from "@/lib/format";
 
-export const revalidate = 30;
-
 export default async function Home() {
   let families: Awaited<ReturnType<typeof api.families>> = {
     items: [],

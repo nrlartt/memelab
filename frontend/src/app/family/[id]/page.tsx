@@ -20,8 +20,6 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatNumber, formatUsd, timeAgo } from "@/lib/format";
 
-export const revalidate = 20;
-
 type Props = { params: Promise<{ id: string }> };
 
 export default async function FamilyDetailPage({ params }: Props) {

@@ -5,8 +5,6 @@ import { Pagination } from "@/components/pagination";
 import { api, type FamiliesQuery } from "@/lib/api";
 import type { DnaFamily } from "@/lib/types";
 
-export const revalidate = 30;
-
 type SortKey = NonNullable<FamiliesQuery["sort"]>;
 
 type Props = {

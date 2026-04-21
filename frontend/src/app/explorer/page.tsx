@@ -14,8 +14,6 @@ import { formatNumber, formatUsd } from "@/lib/format";
 import { TokenCard } from "@/components/token-card";
 import { Pagination } from "@/components/pagination";
 
-export const revalidate = 15;
-
 type SP = {
   q?: string;
   sort?: "newest" | "volume" | "liquidity" | "migrated" | "price";

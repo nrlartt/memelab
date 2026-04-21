@@ -22,8 +22,6 @@ import { SocialMentions } from "@/components/social-mentions";
 import { formatNumber, formatPrice, formatUsd, shortAddress, timeAgo } from "@/lib/format";
 import { TokenAvatar } from "@/components/token-avatar";
 
-export const revalidate = 30;
-
 type Props = { params: Promise<{ address: string }> };
 
 export default async function MutationPage({ params }: Props) {

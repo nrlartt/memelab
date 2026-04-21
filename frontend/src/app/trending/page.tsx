@@ -3,8 +3,6 @@ import { TrendingUp, Flame } from "lucide-react";
 import { api } from "@/lib/api";
 import { formatNumber, formatUsd } from "@/lib/format";
 
-export const revalidate = 30;
-
 export default async function TrendingPage() {
   let items: Awaited<ReturnType<typeof api.trending>>["items"] = [];
   let error: string | null = null;

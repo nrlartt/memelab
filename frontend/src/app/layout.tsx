@@ -63,6 +63,9 @@ export const viewport: Viewport = {
   themeColor: "#05070c",
 };
 
+/** No FastAPI during `npm run build` (Docker/Railway); avoid static pre-render that fetches `/api` and hits the 60s build timeout. */
+export const dynamic = "force-dynamic";
+
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
