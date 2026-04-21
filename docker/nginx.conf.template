@@ -12,7 +12,8 @@ http {
     access_log /dev/stdout;
 
     server {
-        listen @@PORT@@;
+        # Railway injects PORT; must not collide with Next internal port (see entrypoint.sh).
+        listen 0.0.0.0:@@PORT@@;
         client_max_body_size 32m;
 
         # FastAPI JSON + docs (see main.py API_PREFIX)
@@ -39,7 +40,7 @@ http {
 
         # Next.js App Router (standalone)
         location / {
-            proxy_pass http://127.0.0.1:3000;
+            proxy_pass http://127.0.0.1:@@NEXT_PORT@@;
             proxy_http_version 1.1;
             proxy_set_header Upgrade $http_upgrade;
             proxy_set_header Connection "upgrade";
