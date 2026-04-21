@@ -1,0 +1,47 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: memedna-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-memedna}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-memedna}
+      POSTGRES_DB: ${POSTGRES_DB:-memedna}
+    ports:
+      - "5432:5432"
+    volumes:
+      - memedna_pgdata:/var/lib/postgresql/data
+      - ./sql:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-memedna} -d ${POSTGRES_DB:-memedna}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: memedna-api
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    command: uvicorn memedna.main:app --host 0.0.0.0 --port 8000 --proxy-headers
+
+  scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: memedna-scheduler
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: python -m memedna.pipeline.scheduler
+
+volumes:
+  memedna_pgdata:

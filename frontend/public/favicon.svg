@@ -1,0 +1,30 @@
+<!--
+  Favicon: stripped-down version of the main mark. The secondary
+  sparkle and one bubble are removed because they vanish to a single
+  pixel at 16×16 anyway — cleaner to skip than to blur.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="ml-stroke" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#5EF7D1"/>
+      <stop offset="50%" stop-color="#8B5CF6"/>
+      <stop offset="100%" stop-color="#F0ABFC"/>
+    </linearGradient>
+    <linearGradient id="ml-liquid" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#8B5CF6" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#F0ABFC" stop-opacity="0.9"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="64" height="64" rx="15" fill="#0A0E17"/>
+
+  <path d="M 20 39.5 Q 32 41.5 44 39.5 L 48 52 L 16 52 Z" fill="url(#ml-liquid)"/>
+  <circle cx="30" cy="46" r="1.8" fill="#5EF7D1" opacity="0.9"/>
+
+  <path d="M 23 13 L 41 13 L 41 15 L 38 15 L 38 25 L 49 52 Q 49.5 54.5 47 54.5 L 17 54.5 Q 14.5 54.5 15 52 L 26 25 L 26 15 L 23 15 Z"
+        fill="none" stroke="url(#ml-stroke)" stroke-width="2.8"
+        stroke-linecap="round" stroke-linejoin="round"/>
+
+  <path d="M 32 2 L 33.5 6.5 L 38 7.2 L 33.5 7.9 L 32 12 L 30.5 7.9 L 26 7.2 L 30.5 6.5 Z"
+        fill="url(#ml-stroke)"/>
+</svg>

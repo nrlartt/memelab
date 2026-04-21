@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-16"?>
+<!--
+  Windows Task Scheduler definition for "MemeDNA Ingest Latest".
+
+  Import:
+    schtasks /Create /TN "MemeDNA Ingest Latest" /XML "scripts\TaskScheduler_IngestLatest.xml" /F
+  Remove:
+    schtasks /Delete /TN "MemeDNA Ingest Latest" /F
+
+  Behaviour: every 5 minutes, runs scripts\ingest_latest.ps1, which either
+  calls /internal/ingest/quick on the live API or falls back to an
+  in-process run_ingest. Safe if it fails; Task Scheduler will simply retry
+  on the next tick.
+
+  Before import, edit the two <!-- CHANGE ME --> sections below to:
+    • the Windows username that should run the task (same account as the app)
+    • the absolute path to this repo on your machine
+-->
+<Task version="1.4" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+  <RegistrationInfo>
+    <Description>Poll Four.Meme for the latest tokens every 5 minutes.</Description>
+    <Author>MemeDNA</Author>
+  </RegistrationInfo>
+  <Triggers>
+    <TimeTrigger>
+      <Repetition>
+        <Interval>PT5M</Interval>
+        <StopAtDurationEnd>false</StopAtDurationEnd>
+      </Repetition>
+      <StartBoundary>2025-01-01T00:00:00</StartBoundary>
+      <Enabled>true</Enabled>
+    </TimeTrigger>
+  </Triggers>
+  <Principals>
+    <Principal id="Author">
+      <UserId>CHANGE_ME_USERNAME</UserId>
+      <LogonType>InteractiveToken</LogonType>
+      <RunLevel>LeastPrivilege</RunLevel>
+    </Principal>
+  </Principals>
+  <Settings>
+    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
+    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
+    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
+    <AllowHardTerminate>true</AllowHardTerminate>
+    <StartWhenAvailable>true</StartWhenAvailable>
+    <RunOnlyIfNetworkAvailable>true</RunOnlyIfNetworkAvailable>
+    <IdleSettings>
+      <StopOnIdleEnd>false</StopOnIdleEnd>
+      <RestartOnIdle>false</RestartOnIdle>
+    </IdleSettings>
+    <AllowStartOnDemand>true</AllowStartOnDemand>
+    <Enabled>true</Enabled>
+    <Hidden>false</Hidden>
+    <RunOnlyIfIdle>false</RunOnlyIfIdle>
+    <DisallowStartOnRemoteAppSession>false</DisallowStartOnRemoteAppSession>
+    <UseUnifiedSchedulingEngine>true</UseUnifiedSchedulingEngine>
+    <WakeToRun>false</WakeToRun>
+    <ExecutionTimeLimit>PT10M</ExecutionTimeLimit>
+    <Priority>7</Priority>
+  </Settings>
+  <Actions Context="Author">
+    <Exec>
+      <Command>powershell.exe</Command>
+      <Arguments>-NoProfile -ExecutionPolicy Bypass -File "C:\Users\user\Desktop\MemeDNA\scripts\ingest_latest.ps1" -SinceHours 2 -MaxTokens 1500</Arguments>
+      <WorkingDirectory>C:\Users\user\Desktop\MemeDNA</WorkingDirectory>
+    </Exec>
+  </Actions>
+</Task>
