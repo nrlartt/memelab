@@ -14,25 +14,65 @@ import type {
   LabReportResponse,
 } from "./types";
 
-/** Absolute API origin; never rely on empty string (would fetch same-origin /lab-report on :3000 → 404). */
+/** JSON routes are mounted under this path on FastAPI (see ``main.py``). */
+export const API_PREFIX = "/api";
+
+/**
+ * Host-only base, e.g. ``http://127.0.0.1:8000`` or empty string for same-origin
+ * (Docker / Railway: nginx + Next + API on one public host).
+ */
 function getApiBase(): string {
   const raw = process.env.NEXT_PUBLIC_API_BASE;
+  if (raw === "") return "";
   if (typeof raw === "string" && raw.trim().length > 0) {
     return raw.replace(/\/$/, "");
   }
   return "http://127.0.0.1:8000";
 }
 
-const BASE = getApiBase();
+/** Full URL for JSON endpoints (under ``/api``). */
+function jsonUrl(path: string): string {
+  const p = path.startsWith("/") ? path : `/${path}`;
+  const b = getApiBase();
+  if (!b) return `${API_PREFIX}${p}`;
+  return `${b}${API_PREFIX}${p}`;
+}
+
+/** Root-level API helpers (health probes stay outside ``/api``). */
+function rootUrl(path: string): string {
+  const p = path.startsWith("/") ? path : `/${path}`;
+  const b = getApiBase();
+  if (!b) return p;
+  return `${b}${p}`;
+}
+
+function apiRootLabel(): string {
+  const b = getApiBase();
+  return b ? `${b}${API_PREFIX}` : API_PREFIX;
+}
 
 // Next 15 App Router: `revalidate` on the fetch = per-request ISR window.
-// 30 s keeps list pages snappy while still surfacing fresh data after each
-// pipeline tick (scheduler runs every 5 min by default).
 type ReqOpts = { revalidate?: number; signal?: AbortSignal };
+
+async function rootReq<T>(path: string, opts: ReqOpts = {}): Promise<T> {
+  const { revalidate = 30, signal } = opts;
+  const res = await fetch(rootUrl(path), {
+    headers: { accept: "application/json" },
+    next: { revalidate },
+    signal,
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(
+      `API ${res.status} ${res.statusText} – ${path}\n${body.slice(0, 200)}`
+    );
+  }
+  return (await res.json()) as T;
+}
 
 async function req<T>(path: string, opts: ReqOpts = {}): Promise<T> {
   const { revalidate = 30, signal } = opts;
-  const res = await fetch(`${BASE}${path}`, {
+  const res = await fetch(jsonUrl(path), {
     headers: { accept: "application/json" },
     next: { revalidate },
     signal,
@@ -65,8 +105,9 @@ function qstr(obj: Record<string, string | number | undefined>): string {
 }
 
 export const api = {
-  base: BASE,
-  ready: () => req<ReadyResponse>("/readyz", { revalidate: 10 }),
+  /** Logical JSON API root (for UI hints): e.g. ``/api`` or ``http://127.0.0.1:8000/api``. */
+  base: apiRootLabel(),
+  ready: () => rootReq<ReadyResponse>("/readyz", { revalidate: 10 }),
   stack: () => req<StackInfo>("/stack-info", { revalidate: 60 }),
   overview: () => req<OverviewStats>("/stats/overview", { revalidate: 30 }),
   families: (params: FamiliesQuery = {}) =>
@@ -115,15 +156,12 @@ export const api = {
   scanning: () =>
     req<ScanningStats>("/stats/scanning", { revalidate: 5 }),
 
-  /** One-page Lab Report (POST; not cached). */
   labReport: async (body: { mode: "wallet" | "token"; address: string }) => {
-    // Backend can wait on DB pool, BSC RPC, DexScreener, and fact-build
-    // thread: cap wait so the UI never spins forever without feedback.
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 130_000);
     let res: Response;
     try {
-      res = await fetch(`${BASE}/lab-report`, {
+      res = await fetch(jsonUrl("/lab-report"), {
         method: "POST",
         headers: {
           "content-type": "application/json",
@@ -135,7 +173,7 @@ export const api = {
     } catch (e) {
       if (e instanceof DOMException && e.name === "AbortError") {
         throw new Error(
-          "Lab Report timed out (130s). The API may be busy; retry in a minute.",
+          "Lab Report timed out (130s). The API may be busy; retry in a minute."
         );
       }
       throw e;
@@ -143,22 +181,19 @@ export const api = {
       clearTimeout(timer);
     }
     if (!res.ok) {
-      // Surface FastAPI's ``{"detail": "..."}`` as a plain human sentence
-      // instead of ``API 404 Not Found – /lab-report {"detail":...}``.
       const raw = await res.text().catch(() => "");
       let detail = raw;
       try {
         const parsed = JSON.parse(raw) as { detail?: unknown };
         if (typeof parsed.detail === "string") detail = parsed.detail;
       } catch {
-        // not JSON, keep raw
+        /* keep raw */
       }
       throw new Error(detail || `${res.status} ${res.statusText}`);
     }
     return (await res.json()) as LabReportResponse;
   },
 
-  /** Admin: fast LLM-free ingest of the latest blocks (requires admin token). */
   ingestQuick: async (opts: {
     adminToken: string;
     since_hours?: number;
@@ -166,7 +201,7 @@ export const api = {
     enrich_on_chain?: boolean;
   }) => {
     const { adminToken, ...body } = opts;
-    const res = await fetch(`${BASE}/internal/ingest/quick`, {
+    const res = await fetch(jsonUrl("/internal/ingest/quick"), {
       method: "POST",
       headers: {
         "content-type": "application/json",
@@ -182,7 +217,7 @@ export const api = {
     if (!res.ok) {
       const t = await res.text().catch(() => "");
       throw new Error(
-        `API ${res.status} ${res.statusText} – /internal/ingest/quick\n${t.slice(0, 280)}`,
+        `API ${res.status} ${res.statusText} – /internal/ingest/quick\n${t.slice(0, 280)}`
       );
     }
     return (await res.json()) as QuickIngestResponse;

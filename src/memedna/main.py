@@ -41,11 +41,19 @@ settings = get_settings()
 # serving HTTP traffic.
 _scheduler: BackgroundScheduler | None = None
 
+# JSON API lives under ``/api/*`` so the Next.js UI can own human paths like
+# ``/mutation/{address}`` without colliding with FastAPI routes (same path was
+# used for both in the split-port dev setup).
+API_PREFIX = "/api"
+
 app = FastAPI(
     title="MemeLab",
     description="Decodes the origin, evolution, and dominance of meme tokens on BNB Chain.",
     version="0.1.0",
     default_response_class=ORJSONResponse,
+    docs_url=f"{API_PREFIX}/docs",
+    redoc_url=f"{API_PREFIX}/redoc",
+    openapi_url=f"{API_PREFIX}/openapi.json",
 )
 
 app.add_middleware(
@@ -214,13 +222,14 @@ async def _shutdown() -> None:
         _scheduler = None
 
 
-@app.get("/", tags=["meta"])
-def root() -> dict:
+@app.get(f"{API_PREFIX}/meta", tags=["meta"])
+def api_meta() -> dict:
+    """Small manifest for operators when the SPA is served on ``/`` (same host)."""
     return {
         "name": "MemeLab",
         "tagline": "MemeLab decodes the origin, evolution, and dominance of meme tokens.",
         "version": "0.1.0",
-        "docs": "/docs",
+        "docs": f"{API_PREFIX}/docs",
     }
 
 
@@ -264,7 +273,7 @@ _OVERVIEW_CACHE: dict[str, float | dict] = {"at": 0.0, "data": {}}
 _OVERVIEW_TTL_S = 20.0
 
 
-@app.get("/stats/overview", tags=["meta"])
+@app.get(f"{API_PREFIX}/stats/overview", tags=["meta"])
 def stats_overview() -> dict:
     """Global rollup across *every* Four.Meme token and family.
 
@@ -327,7 +336,7 @@ def stats_overview() -> dict:
     return data
 
 
-@app.get("/stats/scanning", tags=["meta"])
+@app.get(f"{API_PREFIX}/stats/scanning", tags=["meta"])
 def stats_scanning() -> dict:
     """Live pipeline telemetry: last 20 runs, current cursor, token/family deltas.
 
@@ -449,7 +458,7 @@ def stats_scanning() -> dict:
     }
 
 
-@app.get("/stack-info", tags=["meta"])
+@app.get(f"{API_PREFIX}/stack-info", tags=["meta"])
 def stack_info() -> dict:
     """What the current MemeLab stack is actually using - for UI transparency."""
     from .ai.research import WebResearcher
@@ -487,11 +496,11 @@ def stack_info() -> dict:
     }
 
 
-app.include_router(families_router)
-app.include_router(mutations_router)
-app.include_router(trending_router)
-app.include_router(social_router)
-app.include_router(explorer_router)
-app.include_router(wallet_router)
-app.include_router(lab_report_router)
-app.include_router(admin_router)
+app.include_router(families_router, prefix=API_PREFIX)
+app.include_router(mutations_router, prefix=API_PREFIX)
+app.include_router(trending_router, prefix=API_PREFIX)
+app.include_router(social_router, prefix=API_PREFIX)
+app.include_router(explorer_router, prefix=API_PREFIX)
+app.include_router(wallet_router, prefix=API_PREFIX)
+app.include_router(lab_report_router, prefix=API_PREFIX)
+app.include_router(admin_router, prefix=API_PREFIX)
