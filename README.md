@@ -120,6 +120,8 @@ sequenceDiagram
 
 ## Quickstart
 
+Keep secrets local: copy `.env.example` to `.env` and **never commit** `.env`, API keys, or tokens (they are listed in `.gitignore`).
+
 ```bash
 cp .env.example .env
 # Set OPENAI_API_KEY, BSC_RPC_URL, DATABASE_URL, etc.

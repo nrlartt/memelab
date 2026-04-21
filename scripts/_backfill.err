@@ -1,7 +1,0 @@
-[32m2026-04-20 12:19:38.767[0m | [1mINFO   [0m | [36m__main__[0m:[36mbackfill[0m:[36m220[0m - [1mResuming from ingest_cursors last_block=93,611,248[0m
-[32m2026-04-20 12:19:38.768[0m | [1mINFO   [0m | [36m__main__[0m:[36mbackfill[0m:[36m229[0m - [1mBackfill 93,611,249 -> 93,611,769 (521 blocks, ~53 chunks of 10, concurrency=4)[0m
-[32m2026-04-20 12:19:40.946[0m | [1mINFO   [0m | [36m__main__[0m:[36mbackfill[0m:[36m297[0m - [1mprogress 30.7% | scanned 160/521 blocks | tokens ins=2 upd=0 (events=2) | 73 blk/s | eta 5s | failures=0[0m
-[32m2026-04-20 12:19:43.024[0m | [1mINFO   [0m | [36m__main__[0m:[36mbackfill[0m:[36m297[0m - [1mprogress 61.4% | scanned 320/521 blocks | tokens ins=4 upd=0 (events=4) | 75 blk/s | eta 3s | failures=0[0m
-[32m2026-04-20 12:19:44.986[0m | [1mINFO   [0m | [36m__main__[0m:[36mbackfill[0m:[36m297[0m - [1mprogress 92.1% | scanned 480/521 blocks | tokens ins=7 upd=0 (events=7) | 77 blk/s | eta 1s | failures=0[0m
-[32m2026-04-20 12:19:45.841[0m | [1mINFO   [0m | [36m__main__[0m:[36mbackfill[0m:[36m297[0m - [1mprogress 100.0% | scanned 521/521 blocks | tokens ins=7 upd=0 (events=7) | 74 blk/s | eta 0s | failures=0[0m
-[32m2026-04-20 12:19:45.842[0m | [1mINFO   [0m | [36m__main__[0m:[36mbackfill[0m:[36m313[0m - [1mBackfill done in 7.1s. events=7 tokens_inserted=7 tokens_updated=0 cursor=93,611,769 failures=0[0m

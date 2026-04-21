@@ -1,25 +1,56 @@
-.venv/
-__pycache__/
-*.pyc
+# --- Secrets & environment (never commit real keys or tokens) ---
 .env
 .env.local
-*.log
-.idea/
-.vscode/
-contracts/artifacts/
-contracts/cache/
-contracts/node_modules/
-dist/
-build/
-*.egg-info/
+**/.env
+**/.env.local
+**/.env.*
+!**/.env.example
+!**/.env.local.example
 
-# Node / Next.js
+*.pem
+*.p12
+*.pfx
+*_rsa
+id_ed25519
+id_ed25519.pub
+credentials.json
+.secrets/
+
+# --- Python ---
+.venv/
+.venv*/
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.coverage
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+
+# --- Node / Next.js ---
 node_modules/
 frontend/node_modules/
 frontend/.next/
 frontend/out/
 .next/
-.env.local
+dist/
+build/
 
-# Local venv variants
-.venv311/
+# TypeScript incremental build cache (local machine only)
+*.tsbuildinfo
+
+# --- Local tooling / script logs ---
+*.log
+scripts/*.err
+scripts/*.out
+
+# --- IDE / OS ---
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# --- Solidity / Hardhat ---
+contracts/artifacts/
+contracts/cache/
