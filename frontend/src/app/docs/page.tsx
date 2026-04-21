@@ -22,15 +22,12 @@ import {
 } from "lucide-react";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { api } from "@/lib/api";
+import { api, publicApiBaseLabel, publicApiHref } from "@/lib/api";
 import {
   prettyModel,
   prettyProvider,
   prettyResearchChain,
 } from "@/lib/humanize";
-
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE ?? "http://127.0.0.1:8000";
 
 type Endpoint = {
   method: "GET";
@@ -347,7 +344,7 @@ export default async function DocsPage() {
 
             <div className="mt-6 flex flex-wrap gap-2">
               <a
-                href={`${API_BASE}/docs`}
+                href={publicApiHref("/docs")}
                 target="_blank"
                 rel="noreferrer"
                 className="inline-flex items-center gap-2 rounded-full border border-[var(--color-helix-a)]/30 bg-[var(--color-helix-a)]/10 px-4 py-1.5 text-xs text-white hover:bg-[var(--color-helix-a)]/20"
@@ -355,7 +352,7 @@ export default async function DocsPage() {
                 Interactive Swagger UI <ExternalLink className="h-3 w-3" />
               </a>
               <a
-                href={`${API_BASE}/openapi.json`}
+                href={publicApiHref("/openapi.json")}
                 target="_blank"
                 rel="noreferrer"
                 className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-4 py-1.5 text-xs text-[var(--color-ink-200)] hover:bg-white/[0.08]"
@@ -530,7 +527,7 @@ export default async function DocsPage() {
           description="Every endpoint returns JSON shaped after the DNA abstraction. Base URL of this deployment:"
         />
         <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 font-mono text-xs text-[var(--color-ink-200)]">
-          {API_BASE}
+          {publicApiBaseLabel()}
         </div>
         <div className="space-y-6">
           {ENDPOINTS.map((g) => (
@@ -999,7 +996,7 @@ function EndpointRow({ ep }: { ep: Endpoint }) {
       </div>
       {ep.example && !ep.example.includes("{") && (
         <a
-          href={`${API_BASE}${ep.example}`}
+          href={publicApiHref(ep.example ?? "")}
           target="_blank"
           rel="noreferrer"
           className="flex-shrink-0 self-start rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-[10px] text-[var(--color-ink-200)] hover:bg-white/[0.08]"
@@ -1009,7 +1006,7 @@ function EndpointRow({ ep }: { ep: Endpoint }) {
       )}
       {ep.path.includes("{") && !ep.example?.includes("{") && (
         <a
-          href={`${API_BASE}${ep.example || tryUrl}`}
+          href={publicApiHref(ep.example || tryUrl)}
           target="_blank"
           rel="noreferrer"
           className="flex-shrink-0 self-start rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-[10px] text-[var(--color-ink-200)] hover:bg-white/[0.08]"

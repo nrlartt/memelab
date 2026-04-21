@@ -18,16 +18,50 @@ import type {
 export const API_PREFIX = "/api";
 
 /**
- * Host-only base, e.g. ``http://127.0.0.1:8000`` or empty string for same-origin
- * (Docker / Railway: Next on PORT, FastAPI on 127.0.0.1:8000, same-origin /api).
+ * Host-only base for ``fetch`` in this module.
+ * Browsers can use same-origin relative ``/api``; Node (RSC/SSR) requires absolute URLs.
  */
 function getApiBase(): string {
+  const raw = process.env.NEXT_PUBLIC_API_BASE;
+  if (typeof raw === "string" && raw.trim().length > 0) {
+    return raw.replace(/\/$/, "");
+  }
+  if (raw === "") {
+    if (typeof window === "undefined") {
+      return (
+        process.env.MEMEDNA_INTERNAL_API_ORIGIN?.replace(/\/$/, "") ??
+        "http://127.0.0.1:8000"
+      );
+    }
+    return "";
+  }
+  return "http://127.0.0.1:8000";
+}
+
+/**
+ * Origin for ``href`` links to the API from the browser. Empty = same host (use ``/api/...`` paths).
+ */
+export function publicApiOrigin(): string {
   const raw = process.env.NEXT_PUBLIC_API_BASE;
   if (raw === "") return "";
   if (typeof raw === "string" && raw.trim().length > 0) {
     return raw.replace(/\/$/, "");
   }
   return "http://127.0.0.1:8000";
+}
+
+/** Build a browser-safe URL to a JSON route (mounted under ``/api`` on FastAPI). */
+export function publicApiHref(pathWithQuery: string): string {
+  const pq = pathWithQuery.startsWith("/") ? pathWithQuery : `/${pathWithQuery}`;
+  const o = publicApiOrigin();
+  if (!o) return `${API_PREFIX}${pq}`;
+  return `${o}${API_PREFIX}${pq}`;
+}
+
+/** Human-readable API root for docs UI (e.g. ``/api`` or ``https://host/api``). */
+export function publicApiBaseLabel(): string {
+  const o = publicApiOrigin();
+  return o ? `${o}${API_PREFIX}` : API_PREFIX;
 }
 
 /** Full URL for JSON endpoints (under ``/api``). */
