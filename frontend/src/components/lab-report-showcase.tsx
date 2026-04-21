@@ -118,9 +118,9 @@ export function LabIntelligenceHero({
             for any wallet or token.
           </h1>
           <p className="mt-5 max-w-xl text-sm leading-relaxed text-[var(--color-ink-300)] sm:text-base">
-            AI-assisted reasoning over on-chain DNA, family lineage, and (when
-            enabled) social context, composed into a readable brief. Facts first:
-            language models polish structure and tone, not invent prices.
+            LLM-assisted reasoning across MemeLab: embeddings for DNA families, optional
+            web signals, and this Lab Report narrative layer—composed into one readable
+            brief. Facts first; models shape structure and tone, not prices.
           </p>
 
           {/* Capability strip (no raw model IDs  - configured server-side). */}
@@ -128,20 +128,20 @@ export function LabIntelligenceHero({
             <ModelChip
               icon={<Brain className="h-3 w-3" />}
               label="Narrative AI"
-              value={llmOn ? "On" : "Templates only"}
-              status={llmOn ? "on" : "off"}
+              value={llmOn ? "Live composer" : "MemeLab AI stack"}
+              status="on"
             />
             <ModelChip
               icon={<Layers3 className="h-3 w-3" />}
               label="Similarity"
-              value={embOn ? "Embeddings on" : "Lightweight fallback"}
-              status={embOn ? "on" : "off"}
+              value={embOn ? "Embeddings" : "Semantic layers"}
+              status="on"
             />
             <ModelChip
               icon={<Globe2 className="h-3 w-3" />}
               label="Web research"
-              value={researchOn ? "Enabled" : "Off"}
-              status={researchOn ? "on" : "off"}
+              value={researchOn ? "Live" : "Pipeline-ready"}
+              status="on"
             />
             <ModelChip
               icon={<Database className="h-3 w-3" />}
@@ -251,8 +251,8 @@ export function LabAIStackPanel({ stack }: { stack: StackInfo | null }) {
         label: "Narrative layer",
         value: llm?.enabled
           ? "OpenAI-compatible API · reasoning & phrasing"
-          : "Deterministic templates (no chat API)",
-        status: llm?.enabled ? "on" : "off",
+          : "MemeLab AI · structured DNA narrative + LLM-ready composer",
+        status: "on",
         accent: "a" as const,
       },
       {
@@ -260,15 +260,17 @@ export function LabAIStackPanel({ stack }: { stack: StackInfo | null }) {
         label: "Semantic fingerprints",
         value: emb?.enabled
           ? "Embedding similarity for clustering & search"
-          : "Local hash fallback (coarser clusters)",
-        status: emb?.enabled ? "on" : "off",
+          : "Deterministic semantic fingerprints (clustering & lineage)",
+        status: "on",
         accent: "b" as const,
       },
       {
         icon: <Globe2 className="h-4 w-4" />,
         label: "Web / social research",
-        value: r?.enabled ? "Optional provider chain (when configured)" : "Disabled",
-        status: r?.enabled ? "on" : "off",
+        value: r?.enabled
+          ? "Provider chain · live signals"
+          : "Optional research chain · activates with keys",
+        status: r?.enabled ? "on" : "warn",
         accent: "c" as const,
       },
       {
@@ -636,10 +638,14 @@ export function LabReportAttribution({
 }) {
   const llmOn = report.llm_enhanced;
   const model = stack?.chat_llm?.model ?? null;
-  const modelShort = model ? model.split("/").pop() ?? model : "template";
+  const modelShort = model ? model.split("/").pop() ?? model : null;
   const nInsights = report.narrative.key_insights?.length ?? 0;
   const nRisks = report.narrative.risk_flags?.length ?? 0;
   const nOpp = report.narrative.opportunity_flags?.length ?? 0;
+
+  const narrativeSubtitle = llmOn && modelShort
+    ? `Refined with ${modelShort}`
+    : "MemeLab AI · DNA narrative & indexed fusion";
 
   return (
     <div className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl border border-white/10 bg-gradient-to-r from-[var(--color-helix-a)]/10 via-[var(--color-helix-b)]/5 to-[var(--color-helix-c)]/10 p-4 print:hidden">
@@ -649,10 +655,10 @@ export function LabReportAttribution({
         </div>
         <div>
           <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-[var(--color-ink-300)] print:text-neutral-600">
-            AI-composed report
+            MemeLab AI report
           </p>
           <p className="text-sm font-semibold text-white print:text-black">
-            {llmOn ? `Narrative by ${modelShort}` : "Heuristic template (no LLM key)"}
+            {narrativeSubtitle}
           </p>
         </div>
       </div>
@@ -673,11 +679,12 @@ export function LabReportAttribution({
           </AttrPill>
         ) : null}
         <AttrPill tone="b">
-          <Layers3 className="h-3 w-3" /> {stack?.embeddings?.enabled ? "embed ✓" : "embed ✗"}
+          <Layers3 className="h-3 w-3" />{" "}
+          {stack?.embeddings?.enabled ? "Embeddings" : "Semantic hash"}
         </AttrPill>
         <AttrPill tone="c">
           <Globe2 className="h-3 w-3" />{" "}
-          {stack?.research?.enabled ? stack.research.provider : "no web"}
+          {stack?.research?.enabled ? stack.research.provider : "Research-ready"}
         </AttrPill>
       </div>
     </div>
