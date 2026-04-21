@@ -9,14 +9,14 @@ COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci
 
 COPY frontend/ ./
-# Same-origin API in the unified image (nginx → /api → uvicorn).
+# Same-origin API in the unified image (Next rewrites → uvicorn on 127.0.0.1:8000).
 ARG NEXT_PUBLIC_API_BASE=
 ENV NEXT_PUBLIC_API_BASE=$NEXT_PUBLIC_API_BASE
 
 RUN npm run build
 
 # -----------------------------------------------------------------------------
-# Python API + nginx reverse proxy + Next standalone
+# Python API (internal) + Next standalone on Railway PORT (rewrites proxy /api)
 # -----------------------------------------------------------------------------
 FROM python:3.11-slim
 
@@ -35,7 +35,6 @@ RUN apt-get update \
        curl \
        ca-certificates \
        gnupg \
-       nginx \
     && mkdir -p /etc/apt/keyrings \
     && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key \
        | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
@@ -62,7 +61,7 @@ COPY --from=frontend-build /app/frontend/public /app/next/public
 
 RUN chmod +x /app/docker/entrypoint.sh
 
-# Railway / Docker set PORT; nginx listens on LISTEN_PORT inside entrypoint.
-EXPOSE 8080
+# Railway sets PORT; Next listens on it (default 3000 locally).
+EXPOSE 3000
 
 ENTRYPOINT ["/app/docker/entrypoint.sh"]

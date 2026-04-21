@@ -19,7 +19,7 @@ export const API_PREFIX = "/api";
 
 /**
  * Host-only base, e.g. ``http://127.0.0.1:8000`` or empty string for same-origin
- * (Docker / Railway: nginx + Next + API on one public host).
+ * (Docker / Railway: Next on PORT, FastAPI on 127.0.0.1:8000, same-origin /api).
  */
 function getApiBase(): string {
   const raw = process.env.NEXT_PUBLIC_API_BASE;
