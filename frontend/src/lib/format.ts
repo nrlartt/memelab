@@ -55,6 +55,23 @@ export function shortAddress(addr: string | null | undefined, head = 6, tail = 4
   return `${addr.slice(0, head)}…${addr.slice(-tail)}`;
 }
 
+/** Absolute timestamp in UTC (matches Four.meme / chain-style listings). */
+export function formatUtc(iso: string | null | undefined): string {
+  if (!iso) return "-";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleString("en-US", {
+    timeZone: "UTC",
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true,
+  });
+}
+
 export function timeAgo(iso: string | null | undefined): string {
   if (!iso) return "-";
   const d = new Date(iso).getTime();

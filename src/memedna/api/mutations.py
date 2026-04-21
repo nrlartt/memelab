@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException
 from loguru import logger
 from sqlalchemy import select
@@ -10,6 +12,7 @@ from sqlalchemy.orm import Session
 from ..db import get_session
 from ..ingestion.lazy import lazy_ingest_token_sync
 from ..models import DnaFamily, FamilyMutation, Token, TokenTrade
+from .launch_time import effective_token_launch_utc
 from ..pipeline.trade_refresh import maybe_refresh_stale_trade_sync
 from ..schemas import MutationFamilyStub, MutationWithFamily, TradingDTO
 
@@ -50,6 +53,23 @@ def get_mutation(token_address: str, session: Session = Depends(get_session)) ->
                 session.commit()
         except Exception as exc:  # noqa: BLE001
             logger.debug("deployer backfill skipped for {}: {}", addr, exc)
+
+    # Align with Four.meme: use on-chain launchTime from bonding when missing/stale.
+    meta = token.raw_metadata or {}
+    if not (isinstance(meta, dict) and meta.get("launchTime")):
+        try:
+            from ..ingestion.onchain import OnchainFourMemeClient
+
+            bonding = OnchainFourMemeClient().enrich_with_bonding(addr)
+            raw = bonding.get("raw_metadata") or {}
+            if raw.get("launchTime"):
+                token.raw_metadata = {**meta, **raw}
+                lt = int(raw["launchTime"])
+                if lt > 1_000_000_000:
+                    token.created_at = datetime.fromtimestamp(lt, tz=timezone.utc)
+                session.commit()
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("launchTime backfill skipped for {}: {}", addr, exc)
 
     trade = session.get(TokenTrade, addr)
 
@@ -95,7 +115,7 @@ def get_mutation(token_address: str, session: Session = Depends(get_session)) ->
         symbol=token.symbol,
         name=token.name,
         description=token.description,
-        created_at=token.created_at,
+        created_at=effective_token_launch_utc(token),
         deployer=token.deployer,
         bonding_progress=token.bonding_progress,
         migrated=token.migrated,

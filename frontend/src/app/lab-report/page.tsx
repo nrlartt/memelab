@@ -159,6 +159,22 @@ export default function LabReportPage() {
     return () => clearInterval(id);
   }, [loadScan, loadMeta, loadSuggestions]);
 
+  /** Deep links from mutation/explorer: /lab-report?mode=token&address=0x… */
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const p = new URLSearchParams(window.location.search);
+      const addr = p.get("address");
+      const modeRaw = p.get("mode");
+      if (addr && ADDR_RE.test(addr.trim())) {
+        setAddress(addr.trim());
+        setMode(modeRaw === "wallet" ? "wallet" : "token");
+      }
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
   const generateFor = useCallback(
     async (m: "wallet" | "token", rawAddr: string, label?: string) => {
       const a = rawAddr.trim();

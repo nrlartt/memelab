@@ -2,10 +2,12 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   ArrowLeft,
+  ArrowRight,
   Clock,
   Dna,
   Droplet,
   ExternalLink,
+  FlaskConical,
   GitBranch,
   Sparkles,
   Target,
@@ -116,7 +118,7 @@ export default async function MutationPage({ params }: Props) {
               </a>
               <a
                 className="inline-flex items-center gap-1 hover:text-white"
-                href={`https://four.meme/token/${m.token_address}`}
+                href={`https://four.meme/en/token/${m.token_address}`}
                 target="_blank"
                 rel="noreferrer"
               >
@@ -134,11 +136,35 @@ export default async function MutationPage({ params }: Props) {
               </p>
             )}
 
+            <Link
+              href={`/lab-report?mode=token&address=${encodeURIComponent(m.token_address)}`}
+              className="group mt-6 flex w-full max-w-2xl items-center justify-between gap-4 rounded-2xl border border-[var(--color-helix-a)]/35 bg-gradient-to-r from-[var(--color-helix-a)]/[0.12] via-[var(--color-helix-b)]/[0.08] to-transparent px-5 py-4 transition hover:border-[var(--color-helix-a)]/55 hover:from-[var(--color-helix-a)]/[0.18]"
+            >
+              <div className="flex items-start gap-3">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[var(--color-helix-a)]/20 text-[var(--color-helix-a)] ring-1 ring-[var(--color-helix-a)]/30">
+                  <FlaskConical className="h-5 w-5" />
+                </span>
+                <div>
+                  <p className="text-sm font-semibold text-white">
+                    Analyze this token with Lab Report
+                  </p>
+                  <p className="mt-0.5 text-xs leading-snug text-[var(--color-ink-400)]">
+                    Full DNA-style breakdown — your contract address is pre-filled; tap Generate when
+                    you&apos;re ready.
+                  </p>
+                </div>
+              </div>
+              <span className="flex shrink-0 items-center gap-1 text-xs font-medium text-[var(--color-helix-a)] group-hover:translate-x-0.5">
+                Open
+                <ArrowRight className="h-4 w-4" />
+              </span>
+            </Link>
+
             <dl className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
               <KPI
-                label="Created"
+                label="Launched (chain)"
                 value={timeAgo(m.created_at)}
-                hint={new Date(m.created_at).toLocaleString("en-US")}
+                hint={`${formatUtc(m.created_at)} UTC`}
                 icon={<Clock className="h-3.5 w-3.5 text-[var(--color-ink-400)]" />}
               />
               <KPI
