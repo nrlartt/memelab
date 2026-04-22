@@ -32,13 +32,14 @@ def fetch_wallet_chain_snapshot(addr: str) -> dict[str, Any]:
     """Live BNB Chain hints for wallets with no MemeLab deploy index (RPC + optional BscScan)."""
     from web3 import Web3
 
+    from ..bsc_web3 import connect_first_bsc_web3
     from ..config import get_settings
 
     raw = addr.lower().strip()
     out: dict[str, Any] = {"address": raw}
     s = get_settings()
     try:
-        w3 = Web3(Web3.HTTPProvider(s.bsc_rpc_url, request_kwargs={"timeout": 12}))
+        w3 = connect_first_bsc_web3(timeout=12.0)
         if not w3.is_connected():
             out["rpc_reachable"] = False
             return out

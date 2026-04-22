@@ -55,6 +55,10 @@ class Settings(BaseSettings):
     bitquery_endpoint: str = Field("https://streaming.bitquery.io/eap")
 
     bsc_rpc_url: str = Field("https://bsc-dataseed.bnbchain.org")
+    # Optional: full Alchemy (or any) BNB mainnet URL when the primary
+    # (e.g. public) times out. Used by the on-chain client to switch over
+    # without restarting the process. Set via BSC_RPC_FALLBACK_URL; never log.
+    bsc_rpc_fallback_url: str = Field("")
     bsc_chain_id: int = Field(56)
     # Set to True when BSC_RPC_URL points to an archive-enabled node
     # (QuickNode, Alchemy, Ankr Premium, ...). Allows ``eth_getLogs`` and deployer

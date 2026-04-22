@@ -11,6 +11,7 @@ from eth_account import Account
 from loguru import logger
 from web3 import Web3
 
+from ..bsc_web3 import connect_first_bsc_web3
 from ..config import get_settings
 from ..models import DnaFamily, FamilyMutation
 
@@ -66,7 +67,7 @@ class RegistryClient:
             self.account = None
             self.contract = None
             return
-        self.w3 = Web3(Web3.HTTPProvider(s.bsc_rpc_url, request_kwargs={"timeout": 30}))
+        self.w3 = connect_first_bsc_web3(timeout=30.0)
         self.account = Account.from_key(s.memedna_deployer_private_key)
         self.contract = self.w3.eth.contract(
             address=Web3.to_checksum_address(s.memedna_registry_address), abi=REGISTRY_ABI

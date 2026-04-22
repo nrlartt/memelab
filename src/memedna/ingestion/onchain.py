@@ -12,6 +12,7 @@ Even with a free public RPC we cap the scanned block range per call to avoid
 from __future__ import annotations
 
 import asyncio
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
@@ -21,6 +22,7 @@ from loguru import logger
 from web3 import Web3
 from web3.exceptions import ContractLogicError
 
+from ..bsc_web3 import bsc_rpc_url_chain, rpc_error_suggests_failover
 from ..config import get_settings
 
 # Observed on BSC mainnet Four.Meme TokenManager2 — used to filter eth_getLogs.
@@ -145,12 +147,9 @@ _PRUNED_HISTORY_SAFE_BLOCKS = 48_000  # noqa: F841 (back-compat shim)
 class OnchainFourMemeClient:
     def __init__(self) -> None:
         s = get_settings()
-        self.w3 = Web3(Web3.HTTPProvider(s.bsc_rpc_url, request_kwargs={"timeout": 30}))
-        self.manager = self.w3.eth.contract(
-            address=Web3.to_checksum_address(s.fourmeme_token_manager),
-            abi=TOKEN_MANAGER_ABI,
-        )
-        self.token_create_event = self.manager.events.TokenCreate
+        self._rpc_lock = threading.Lock()
+        self._rpc_urls = bsc_rpc_url_chain()
+        self._rebuild_web3_at(0)
         # Settings-driven knobs so a paid archive RPC can open up the whole
         # history window without editing code.
         self._archive = bool(s.bsc_rpc_archive)
@@ -163,7 +162,52 @@ class OnchainFourMemeClient:
         # clamped because cursor fell behind the RPC retention window.
         self._last_gap_blocks = 0
 
+    def _rebuild_web3_at(self, idx: int) -> None:
+        s = get_settings()
+        if not self._rpc_urls:
+            self._rpc_urls = bsc_rpc_url_chain()
+        idx = max(0, min(int(idx), len(self._rpc_urls) - 1))
+        url = self._rpc_urls[idx]
+        self.w3 = Web3(Web3.HTTPProvider(url, request_kwargs={"timeout": 30}))
+        self.manager = self.w3.eth.contract(
+            address=Web3.to_checksum_address(s.fourmeme_token_manager),
+            abi=TOKEN_MANAGER_ABI,
+        )
+        self.token_create_event = self.manager.events.TokenCreate
+        self._rpc_idx = idx
+
+    def _try_failover_rpc(self, exc: BaseException) -> bool:
+        if len(self._rpc_urls) < 2 or not rpc_error_suggests_failover(exc):
+            return False
+        with self._rpc_lock:
+            nxt = self._rpc_idx + 1
+            if nxt >= len(self._rpc_urls):
+                return False
+            logger.info(
+                "BSC JSON-RPC: switching to fallback ({} of {})",
+                nxt + 1,
+                len(self._rpc_urls),
+            )
+            self._rebuild_web3_at(nxt)
+        return True
+
+    def _ensure_any_rpc(self) -> bool:
+        for i in range(len(self._rpc_urls)):
+            self._rebuild_web3_at(i)
+            try:
+                if self.w3.is_connected():
+                    return True
+            except Exception:
+                continue
+        return False
+
     def latest_block(self) -> int:
+        for _ in range(3):
+            try:
+                return int(self.w3.eth.block_number)
+            except Exception as exc:  # noqa: BLE001
+                if not self._try_failover_rpc(exc):
+                    raise
         return int(self.w3.eth.block_number)
 
     def estimate_lookback_blocks(self, hours: int) -> int:
@@ -246,7 +290,11 @@ class OnchainFourMemeClient:
                         self._block_range = new_range
                     return "oversize"
                 if "429" in msg or "rate" in msg or "timeout" in msg:
+                    if self._try_failover_rpc(exc):
+                        continue
                     time.sleep(0.8 * (attempt + 1))
+                    continue
+                if self._try_failover_rpc(exc):
                     continue
                 logger.warning("get_logs failed {}-{}: {}", start, end, scrubbed)
                 return None
@@ -276,8 +324,8 @@ class OnchainFourMemeClient:
         parallel and dynamically shrinks the block range if the RPC complains
         about size.
         """
-        if not self.w3.is_connected():
-            logger.warning("BSC RPC not reachable")
+        if not self._ensure_any_rpc():
+            logger.warning("BSC RPC not reachable (tried all configured JSON-RPC endpoints)")
             return []
         latest = self.latest_block()
         if from_block is not None:
