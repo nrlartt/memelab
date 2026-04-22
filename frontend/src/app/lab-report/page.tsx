@@ -53,7 +53,6 @@ import {
 } from "@/components/lab-report-showcase";
 import { TokenAvatar } from "@/components/token-avatar";
 import { useWalletAddress } from "@/hooks/use-wallet-address";
-import { LabReportWalletGate } from "@/components/lab-report/lab-report-wallet-gate";
 import { WalletAiScanAnimation } from "@/components/lab-report/wallet-ai-scan";
 
 const ADDR_RE = /^0x[a-fA-F0-9]{40}$/;
@@ -223,14 +222,6 @@ export default function LabReportPage() {
       setLabIntroPending(false);
     }, 1800);
     return () => window.clearTimeout(t);
-  }, [walletAddress]);
-
-  useEffect(() => {
-    if (!walletAddress) {
-      setReport(null);
-      setErr(null);
-      setActiveLabel("");
-    }
   }, [walletAddress]);
 
   const generate = useCallback(() => {
@@ -409,22 +400,7 @@ export default function LabReportPage() {
     window.print();
   }, []);
 
-  if (!walletAddress) {
-    return (
-      <div className="page-shell space-y-8">
-        <Link
-          href="/"
-          className="inline-flex items-center gap-1.5 text-xs text-[var(--color-ink-300)] hover:text-white print:hidden"
-        >
-          <ArrowLeft className="h-3 w-3" />
-          Back to Overview
-        </Link>
-        <LabReportWalletGate />
-      </div>
-    );
-  }
-
-  if (labIntroPending === null) {
+  if (labIntroPending === null && walletAddress) {
     return (
       <div className="page-shell space-y-8">
         <Link
