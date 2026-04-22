@@ -53,6 +53,21 @@ _COOLDOWN_AFTER_FAILURE_S = 90.0
 # 401/403 = auth wrong, 5xx = provider on fire.
 _COOLDOWN_STATUSES: frozenset[int] = frozenset({401, 402, 403, 429, 432, 500, 502, 503, 504})
 
+# httpx error strings may echo full request URLs with api_key=… (SerpAPI) or
+# path keys (Alchemy). Never log raw.
+_REDACT_QS = re.compile(
+    r"(?i)([?&])(api_key|key|apikey|access_token|token|secret|password)=[^&\s'\"]+"
+)
+_REDACT_V2_PATH = re.compile(r"(/v2/)([a-fA-F0-9]{32,})")
+
+
+def _redact_secrets_in_message(msg: str) -> str:
+    if not msg:
+        return msg
+    out = _REDACT_QS.sub(r"\1\2=<redacted>", msg)
+    out = _REDACT_V2_PATH.sub(r"\1<redacted>", out)
+    return out
+
 
 def _trip_breaker(name: str, reason: str) -> None:
     _PROVIDER_COOLDOWN_UNTIL[name] = time.monotonic() + _COOLDOWN_AFTER_FAILURE_S
@@ -173,7 +188,10 @@ class WebResearcher:
                 )
                 merged.extend(tweets_to_snippets(tweets))
             except Exception as exc:  # noqa: BLE001
-                logger.warning("X search failed: {}", exc)
+                logger.warning(
+                    "X search failed: {}",
+                    _redact_secrets_in_message(str(exc)),
+                )
                 _maybe_trip_from_http_error("x", exc)
 
         # Stage 2: pick the first working general web provider and add its
@@ -202,7 +220,11 @@ class WebResearcher:
                     merged.extend(results)
                     break
             except Exception as exc:  # noqa: BLE001
-                logger.warning("web research ({}) failed: {}", name, exc)
+                logger.warning(
+                    "web research ({}) failed: {}",
+                    name,
+                    _redact_secrets_in_message(str(exc)),
+                )
                 _maybe_trip_from_http_error(name, exc)
 
         return merged[:max_results]
@@ -221,7 +243,11 @@ class WebResearcher:
                 resp.raise_for_status()
                 return resp.text[:20_000]
         except Exception as exc:  # noqa: BLE001
-            logger.debug("jina reader failed for {}: {}", url, exc)
+            logger.debug(
+                "jina reader failed for {}: {}",
+                url,
+                _redact_secrets_in_message(str(exc)),
+            )
             return None
 
     # ---- providers -----------------------------------------------------

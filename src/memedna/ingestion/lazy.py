@@ -213,7 +213,8 @@ async def lazy_ingest_token_detailed(
 # flaky public BSC RPCs cannot hold the HTTP response for minutes. Lab-report
 # uses :func:`lazy_ingest_token_detailed_sync` with a separate budget.
 LAZY_INGEST_MUTATION_TIMEOUT_S = 8.0
-LAZY_INGEST_LAB_TIMEOUT_S = 22.0
+# Lab report client allows ~130s; BSC+DexScreener+holders on slow RPC need headroom.
+LAZY_INGEST_LAB_TIMEOUT_S = 55.0
 
 
 async def lazy_ingest_token(session: Session, address: str) -> bool:
