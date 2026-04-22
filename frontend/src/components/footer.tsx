@@ -5,9 +5,11 @@ import { MEMELAB_TAGLINE } from "@/lib/brand";
 
 const X_URL = "https://x.com/nrlartt";
 
+const DEFAULT_GITHUB_URL = "https://github.com/nrlartt/memelab";
+
 function githubHref(): string {
   const u = process.env.NEXT_PUBLIC_GITHUB_URL?.trim();
-  return u && u.startsWith("http") ? u : "https://github.com/";
+  return u && u.startsWith("http") ? u : DEFAULT_GITHUB_URL;
 }
 
 export function Footer() {
@@ -64,7 +66,7 @@ export function Footer() {
               target="_blank"
               rel="noreferrer"
               className="inline-flex items-center gap-1.5 hover:text-white"
-              title="Repository (set NEXT_PUBLIC_GITHUB_URL to your repo)"
+              title="Source on GitHub"
             >
               <Github className="h-3.5 w-3.5" aria-hidden />
               GitHub

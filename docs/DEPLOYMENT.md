@@ -12,7 +12,7 @@
 ## 2. Local / single-host
 
 ```bash
-git clone <this-repo> memedna && cd memedna
+git clone https://github.com/nrlartt/memelab.git memelab && cd memelab
 cp .env.example .env
 # edit .env with your keys
 

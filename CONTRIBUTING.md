@@ -1,5 +1,7 @@
 # Contributing
 
+**Repository:** https://github.com/nrlartt/memelab
+
 1. **Python:** use a virtualenv, `pip install -r requirements.txt`, `PYTHONPATH=src` for imports.
 2. **Frontend:** from `frontend/`: `npm install`, `npm run dev`; set `NEXT_PUBLIC_API_BASE` to your API origin.
 3. **Style:** match existing patterns; keep changes scoped to the issue or request.
