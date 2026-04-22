@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 from datetime import datetime, timedelta, timezone
 
@@ -118,6 +119,15 @@ def _finalize_ghost_pipeline_runs() -> int:
     except Exception as exc:  # noqa: BLE001
         logger.warning("ghost pipeline-run sweep failed: {}", exc)
         return 0
+
+
+def _configure_third_party_logging() -> None:
+    """web3.py logs an ERROR line for *every* JSON-RPC error *before* raising
+    (``An RPC error was returned by the node…`` or timeout text), even when
+    callers catch and handle the exception. That duplicates MemeLab's own
+    scrubbed ``onchain`` warnings and spams public-RPC failures with noise.
+    """
+    logging.getLogger("web3.manager.RequestManager").setLevel(logging.CRITICAL)
 
 
 @app.on_event("startup")
@@ -505,3 +515,5 @@ app.include_router(explorer_router, prefix=API_PREFIX)
 app.include_router(wallet_router, prefix=API_PREFIX)
 app.include_router(lab_report_router, prefix=API_PREFIX)
 app.include_router(admin_router, prefix=API_PREFIX)
+
+_configure_third_party_logging()
