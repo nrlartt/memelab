@@ -209,9 +209,27 @@ async def lazy_ingest_token_detailed(
     )
 
 
+# Hard cap for on-demand single-token pulls (e.g. ``GET /mutation/...``) so
+# flaky public BSC RPCs cannot hold the HTTP response for minutes. Lab-report
+# uses :func:`lazy_ingest_token_detailed_sync` with a separate budget.
+LAZY_INGEST_MUTATION_TIMEOUT_S = 8.0
+LAZY_INGEST_LAB_TIMEOUT_S = 22.0
+
+
 async def lazy_ingest_token(session: Session, address: str) -> bool:
     """Thin boolean facade over :func:`lazy_ingest_token_detailed`."""
-    res = await lazy_ingest_token_detailed(session, address)
+    try:
+        res = await asyncio.wait_for(
+            lazy_ingest_token_detailed(session, address),
+            timeout=LAZY_INGEST_MUTATION_TIMEOUT_S,
+        )
+    except TimeoutError:
+        logger.warning(
+            "lazy_ingest: timed out after {}s for {} (returning 404 if not indexed)",
+            LAZY_INGEST_MUTATION_TIMEOUT_S,
+            address,
+        )
+        return False
     return bool(res)
 
 
@@ -251,4 +269,18 @@ def lazy_ingest_token_detailed_sync(
         )
 
     _assert_no_running_loop("lazy_ingest_token_detailed_sync")
-    return asyncio.run(_run())
+
+    async def _guarded() -> LazyIngestResult:
+        try:
+            return await asyncio.wait_for(
+                _run(), timeout=LAZY_INGEST_LAB_TIMEOUT_S
+            )
+        except TimeoutError:
+            logger.warning(
+                "lazy_ingest detailed: timed out after {}s for {}",
+                LAZY_INGEST_LAB_TIMEOUT_S,
+                address,
+            )
+            return LazyIngestResult(False, reason="timeout")
+
+    return asyncio.run(_guarded())

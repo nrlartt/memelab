@@ -250,6 +250,10 @@ def _build_token_facts(session: Session, addr: str) -> dict:
                     "yet. If the token just launched, wait ~30s for "
                     "DexScreener to pick it up and try again."
                 ),
+                "timeout": (
+                    "Live ingestion timed out (BSC RPC or upstream was slow). "
+                    "Try again in a moment."
+                ),
             }
             raise HTTPException(
                 status_code=404,

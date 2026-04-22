@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeout
 from datetime import datetime, timezone
+from typing import Callable, TypeVar
 
 from fastapi import APIRouter, Depends, HTTPException
 from loguru import logger
@@ -17,6 +19,35 @@ from ..pipeline.trade_refresh import maybe_refresh_stale_trade_sync
 from ..schemas import MutationFamilyStub, MutationWithFamily, TradingDTO
 
 router = APIRouter(tags=["mutations"])
+
+T = TypeVar("T")
+
+# User-facing /mutation must return before reverse-proxy timeouts (Vercel ~10-60s).
+# Unbounded on-chain work (e.g. ``eth_getLogs`` over wide ranges) is moved off
+# the hot path via short hard caps; failures remain best-effort.
+_MUTATION_DEPLOYER_RPC_S = 3.0
+_MUTATION_LAUNCH_RPC_S = 3.0
+_MUTATION_BONDING_LIQ_RPC_S = 2.0
+
+
+def _call_sync_with_timeout(
+    label: str, fn: Callable[[], T], seconds: float
+) -> T | None:
+    """Run a blocking call in a worker thread, abandon after ``seconds`` wall time."""
+    with ThreadPoolExecutor(max_workers=1) as ex:
+        fut = ex.submit(fn)
+        try:
+            return fut.result(timeout=seconds)
+        except FuturesTimeout:
+            logger.warning(
+                "mutation: {} RPC step timed out after {}s (best-effort skip)",
+                label,
+                seconds,
+            )
+            return None
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("mutation: {}: {}", label, exc)
+            return None
 
 
 @router.get("/mutation/{token_address}", response_model=MutationWithFamily)
@@ -44,32 +75,47 @@ def get_mutation(token_address: str, session: Session = Depends(get_session)) ->
     # Older ingests (especially lazy-ingest) omitted deployer. One-shot RPC
     # backfill so the mutation page and lab-report facts aren't stuck empty.
     if not token.deployer:
-        try:
-            from ..ingestion.onchain import OnchainFourMemeClient
+        from ..ingestion.onchain import OnchainFourMemeClient
 
-            dep = OnchainFourMemeClient().resolve_token_deployer(addr)
-            if dep:
+        def _deployer_block() -> str | None:
+            return OnchainFourMemeClient().resolve_token_deployer(addr)
+
+        dep: str | None = _call_sync_with_timeout(
+            "deployer backfill", _deployer_block, _MUTATION_DEPLOYER_RPC_S
+        )
+        if dep:
+            try:
                 token.deployer = dep
                 session.commit()
-        except Exception as exc:  # noqa: BLE001
-            logger.debug("deployer backfill skipped for {}: {}", addr, exc)
+            except Exception as exc:  # noqa: BLE001
+                logger.debug("deployer commit skipped for {}: {}", addr, exc)
 
     # Align with Four.meme: use on-chain launchTime from bonding when missing/stale.
     meta = token.raw_metadata or {}
     if not (isinstance(meta, dict) and meta.get("launchTime")):
-        try:
-            from ..ingestion.onchain import OnchainFourMemeClient
+        from ..ingestion.onchain import OnchainFourMemeClient
 
-            bonding = OnchainFourMemeClient().enrich_with_bonding(addr)
-            raw = bonding.get("raw_metadata") or {}
-            if raw.get("launchTime"):
-                token.raw_metadata = {**meta, **raw}
-                lt = int(raw["launchTime"])
-                if lt > 1_000_000_000:
-                    token.created_at = datetime.fromtimestamp(lt, tz=timezone.utc)
-                session.commit()
-        except Exception as exc:  # noqa: BLE001
-            logger.debug("launchTime backfill skipped for {}: {}", addr, exc)
+        def _launch_block() -> dict[str, Any] | None:
+            b = OnchainFourMemeClient().enrich_with_bonding(addr)
+            return b if isinstance(b, dict) else None
+
+        bonding = _call_sync_with_timeout(
+            "launchTime backfill", _launch_block, _MUTATION_LAUNCH_RPC_S
+        )
+        if isinstance(bonding, dict):
+            try:
+                raw = bonding.get("raw_metadata") or {}
+                if raw.get("launchTime"):
+                    base = meta if isinstance(meta, dict) else {}
+                    token.raw_metadata = {**base, **raw}
+                    lt = int(raw["launchTime"])
+                    if lt > 1_000_000_000:
+                        token.created_at = datetime.fromtimestamp(
+                            lt, tz=timezone.utc
+                        )
+                    session.commit()
+            except Exception as exc:  # noqa: BLE001
+                logger.debug("launchTime backfill commit skipped for {}: {}", addr, exc)
 
     trade = session.get(TokenTrade, addr)
 
@@ -82,15 +128,22 @@ def get_mutation(token_address: str, session: Session = Depends(get_session)) ->
     # DexScreener often sends liquidity=null for four.meme bonding pairs — if
     # the row is still zero after refresh, patch from on-chain ``funds``.
     if trade and float(trade.liquidity_usd or 0) <= 0:
-        try:
-            from ..ingestion.onchain import OnchainFourMemeClient
+        from ..ingestion.onchain import OnchainFourMemeClient
 
-            est = OnchainFourMemeClient().estimate_bonding_liquidity_usd(addr)
-            if est and est > 0:
+        def _liq() -> float | None:
+            return OnchainFourMemeClient().estimate_bonding_liquidity_usd(addr)
+
+        est: float | None = _call_sync_with_timeout(
+            "bonding liquidity", _liq, _MUTATION_BONDING_LIQ_RPC_S
+        )
+        if est and est > 0:
+            try:
                 trade.liquidity_usd = float(est)
                 session.commit()
-        except Exception as exc:  # noqa: BLE001
-            logger.debug("bonding liquidity backfill skipped for {}: {}", addr, exc)
+            except Exception as exc:  # noqa: BLE001
+                logger.debug(
+                    "bonding liquidity commit skipped for {}: {}", addr, exc
+                )
 
     link_row = session.execute(
         select(FamilyMutation, DnaFamily)
