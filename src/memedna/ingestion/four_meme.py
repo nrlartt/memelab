@@ -139,22 +139,41 @@ async def ingest_four_meme_tokens(
         cursor = _read_cursor(session, SOURCE_ONCHAIN, chain_id)
         if cursor > 0:
             scan_start = cursor + 1
-            scan_end = latest
-            gap = max(scan_end - scan_start + 1, 0)
-            logger.info(
-                "On-chain incremental {} → {} ({} new blocks since last run)",
-                scan_start, scan_end, gap,
-            )
-            # If the cursor has fallen way behind (e.g. scheduler was off for
-            # hours), the freshest tokens at the head of chain are the most
-            # important to capture first — processing oldest-first with a
-            # capped `max_events` would drop them. Newest-first fixes that.
+            latest_int = int(latest)
+            full_gap = max(latest_int - scan_start + 1, 0)
+            # Chunk huge backlogs: scanning 50k+ blocks in one go ties up the
+            # process for many minutes and starves the API / Node peer on small
+            # Railway-style containers. Newest-within-whole-range was nice for
+            # "fresh first" but is incompatible with partial cursor; we catch up
+            # oldest-to-newest in slices until the gap fits under the cap.
+            cap = int(getattr(settings, "pipeline_incremental_max_blocks", 0) or 0)
+            if cap > 0 and full_gap > cap:
+                scan_end = min(scan_start + cap - 1, latest_int)
+                newest = False
+                logger.info(
+                    "On-chain incremental (chunk) {} → {} ({} of {} behind head)",
+                    scan_start,
+                    scan_end,
+                    scan_end - scan_start + 1,
+                    full_gap,
+                )
+            else:
+                scan_end = latest_int
+                logger.info(
+                    "On-chain incremental {} → {} ({} new blocks since last run)",
+                    scan_start,
+                    scan_end,
+                    full_gap,
+                )
+                # Large gap, single pass: still prefer newest so max_events
+                # never trims the head.
+                newest = full_gap > max_tokens
             rpc_rows = await asyncio.to_thread(
                 rpc.list_new_tokens,
                 from_block=scan_start,
                 to_block=scan_end,
                 max_events=max_tokens,
-                newest_first=gap > max_tokens,
+                newest_first=newest,
             )
         else:
             scan_end = latest
@@ -305,12 +324,11 @@ async def ingest_four_meme_tokens(
     # have already migrated to PancakeSwap - pre-migration tokens stay 0 until
     # they graduate, which is the correct behaviour.
     addresses = list(merged.keys())
-    # Also refresh trades for *all* tokens we've ever seen - helps keep
-    # volumes up to date for older families.
-    all_known = list(
-        session.execute(select(Token.token_address)).scalars().all()
-    )
-    trade_targets = list({*addresses, *all_known})
+    # Only refresh the tokens touched in this ingest pass. Refreshing *every*
+    # token in the table every 5m used to mean 10k+ addresses per run (30s+)
+    # and the same work is already done in smaller batches by the
+    # ``trade-refresh`` scheduler job.
+    trade_targets = list(addresses)
     try:
         refreshed = await refresh_trades_via_dexscreener(session, trade_targets)
         logger.info("DexScreener refreshed {}/{} tokens", refreshed, len(trade_targets))

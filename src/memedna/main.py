@@ -187,9 +187,10 @@ async def _startup() -> None:
             id="memedna-pipeline",
             coalesce=True,
             max_instances=1,
-            # Start the first tick 30s after boot - gives the API a moment
-            # to warm up before hitting Groq/DexScreener.
-            next_run_time=datetime.now(tz=timezone.utc) + timedelta(seconds=30),
+            # Start the first tick after boot so health checks, Next.js boot,
+            # and early user traffic are not competing with a multi-minute
+            # on-chain RPC catch-up on the same CPU.
+            next_run_time=datetime.now(tz=timezone.utc) + timedelta(seconds=120),
         )
         # Fast trade refresher: cheap (DexScreener only), high-frequency.
         # Kicked off 10s after boot so it doesn't race with the readiness

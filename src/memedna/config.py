@@ -111,6 +111,13 @@ class Settings(BaseSettings):
     # so incremental runs never get starved and a cold start over 30 days
     # can pull ~50k events in a single pass.
     pipeline_max_tokens_per_run: int = Field(60_000)
+    # When the on-chain cursor is tens of thousands of blocks behind, scanning
+    # the whole gap in a single list_new_tokens pass can take many minutes
+    # (RPC get_logs) and monopolize CPU, threads, and DB time in the same
+    # process as the API. Chunk so each scheduler tick only walks at most
+    # this many blocks, advancing the cursor each time. Set 0 to disable
+    # (one giant catch-up, not recommended in production on free RPCs).
+    pipeline_incremental_max_blocks: int = Field(12_000)
     # Cluster acceptance: minimum LLM confidence to persist a DNA Family.
     # Lowered slightly so borderline-but-meaningful narratives survive and
     # we don't drop 60 % of candidates on a marginal confidence call.

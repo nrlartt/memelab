@@ -31,6 +31,10 @@ import {
 } from "@/lib/format";
 import { TokenAvatar } from "@/components/token-avatar";
 
+/** Always resolve token details at request time; never show stale 404/502 from a failed fetch. */
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 type Props = { params: Promise<{ address: string }> };
 
 export default async function MutationPage({ params }: Props) {
