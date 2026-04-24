@@ -75,15 +75,18 @@ async def run_pipeline(
         ingest_lock_sess = SessionLocal()
         if try_advisory_lock(ingest_lock_sess, ADVISORY_LOCK_PIPELINE_INGEST):
             try:
-                with session_scope() as session:
-                    t0 = time.time()
-                    stats = await ingest_four_meme_tokens(
-                        session,
-                        since_hours=lookback_hours,
-                        max_tokens=settings.pipeline_max_tokens_per_run,
-                    )
-                    stages["ingest"] = round(time.time() - t0, 2)
-                    tokens_ingested = stats.fetched
+                try:
+                    with session_scope() as session:
+                        t0 = time.time()
+                        stats = await ingest_four_meme_tokens(
+                            session,
+                            since_hours=lookback_hours,
+                            max_tokens=settings.pipeline_max_tokens_per_run,
+                        )
+                        stages["ingest"] = round(time.time() - t0, 2)
+                        tokens_ingested = stats.fetched
+                except Exception as exc:  # noqa: BLE001
+                    logger.exception("Ingest stage failed (downstream will still run): {}", exc)
             finally:
                 try:
                     release_advisory_lock(ingest_lock_sess, ADVISORY_LOCK_PIPELINE_INGEST)

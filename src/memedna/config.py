@@ -110,6 +110,11 @@ class Settings(BaseSettings):
     # `ingest_cursor` instead of `since_hours`, turning the pipeline into a
     # continuous incremental indexer. Default on.
     pipeline_incremental: bool = Field(True)
+    # Every scheduled ingest (not backfills) also runs a *head* getLogs pass on
+    # the last N blocks, newest-first — same idea as /internal/ingest/quick.
+    # Catches fresh launches if the incremental slice or pruned-RPC path missed
+    # them. Set 0 to disable and rely on cursor-only scans.
+    ingest_head_blocks: int = Field(6000)
     # Hard cap on TokenCreate events pulled per ingest pass. Four.Meme
     # historically launches ~3k tokens/24h with bursts; keep real headroom
     # so incremental runs never get starved and a cold start over 30 days

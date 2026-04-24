@@ -11,6 +11,11 @@ LLM stages hold lock **42**. That way a second API instance can still pull new
 tokens even while the first is busy enriching — a common cause of a "stuck"
 indexed token count when only one global lock was used before.
 
+**Head pass:** each normal ingest also merges a **newest-first** scan of the last
+``INGEST_HEAD_BLOCKS`` (default 6000 ≈ ~2 h on BSC), matching the admin
+``/internal/ingest/quick`` head step. Set ``INGEST_HEAD_BLOCKS=0`` only to save RPC
+if you are sure the incremental cursor alone is enough.
+
 If nothing new shows up in the Explorer or Lab Reports, the scheduler is
 almost certainly not running. This doc lists the three recommended ways to
 keep it alive on Windows.

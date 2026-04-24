@@ -194,8 +194,29 @@ async def ingest_four_meme_tokens(
             max_events=max_tokens,
         )
 
+    # Hot head pass: same guarantee as /internal/ingest/quick — newest Four.Meme
+    # launches land even if incremental chunking, cursor lag, or pruned history
+    # left a gap. Idempotent via merge+upsert below.
+    head_rows: list[dict[str, Any]] = []
+    hb = int(getattr(settings, "ingest_head_blocks", 0) or 0)
+    if from_block is None and latest is not None and hb > 0:
+        try:
+            head_rows = await asyncio.to_thread(
+                rpc.list_latest_tokens_head,
+                hb,
+                max_tokens,
+            )
+            if head_rows:
+                logger.info(
+                    "ingest head pass: {} TokenCreate in last ~{} blocks (dedupes with main scan)",
+                    len(head_rows),
+                    hb,
+                )
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("ingest head pass failed (non-fatal): {}", exc)
+
     merged: dict[str, dict[str, Any]] = {}
-    for row in bq_rows + rpc_rows:
+    for row in bq_rows + rpc_rows + head_rows:
         addr = row["token_address"].lower()
         row["token_address"] = addr
         ts = _parse_ts(row.get("created_at")) or datetime.utcnow()
