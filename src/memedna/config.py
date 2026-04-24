@@ -55,6 +55,11 @@ class Settings(BaseSettings):
     bitquery_endpoint: str = Field("https://streaming.bitquery.io/eap")
 
     bsc_rpc_url: str = Field("https://bsc-dataseed.bnbchain.org")
+    # If set, **always first** in the JSON-RPC chain (before BSC_RPC_URL). Use this
+    # in Railway/Render so QuickNode is never overridden by a forgotten BSC_RPC_URL
+    # default — set BSC_QUICKNODE_URL to your full quiknode.pro URL, then pick a
+    # public second hop in BSC_RPC_URL and paid keys in fallbacks.
+    bsc_quicknode_url: str = Field("")
     # Optional: full Alchemy / QuickNode / Ankr BNB mainnet URL when the primary
     # (e.g. public) times out. The on-chain client switches over without restart.
     # Set via BSC_RPC_FALLBACK_URL; never log shared URLs (they embed API keys).

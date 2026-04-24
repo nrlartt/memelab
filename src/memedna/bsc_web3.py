@@ -22,10 +22,15 @@ def _parse_extra_rpc_urls(raw: str | None) -> list[str]:
 
 
 def bsc_rpc_url_chain() -> list[str]:
-    """Primary → first fallback → extra URLs (QuickNode, spare Alchemy, …). Deduplicated."""
+    """Optional QuickNode (first) → BSC_RPC_URL → fallback → extra URLs. Deduplicated.
+
+    BSC_QUICKNODE_URL is always prepended when set so production hosts can force
+    QuickNode as index 0 without relying on BSC_RPC_URL alone.
+    """
     s = get_settings()
     out: list[str] = []
     for u in (
+        (s.bsc_quicknode_url or "").strip(),
         s.bsc_rpc_url,
         s.bsc_rpc_fallback_url or "",
         *_parse_extra_rpc_urls(s.bsc_rpc_extra_urls),
@@ -36,6 +41,21 @@ def bsc_rpc_url_chain() -> list[str]:
     if not out:
         out.append("https://bsc-dataseed.bnbchain.org")
     return out
+
+
+def bsc_rpc_hostnames() -> list[str]:
+    """Hostnames of the current RPC chain (for stack-info; no path or key material)."""
+    from urllib.parse import urlparse
+
+    hosts: list[str] = []
+    for url in bsc_rpc_url_chain():
+        try:
+            h = urlparse(url).hostname
+            if h and h not in hosts:
+                hosts.append(h)
+        except Exception:
+            continue
+    return hosts
 
 
 def make_bsc_web3(url: str, timeout: float) -> Web3:

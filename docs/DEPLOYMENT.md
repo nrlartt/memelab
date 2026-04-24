@@ -4,7 +4,9 @@
 
 * Docker 24+
 * A BSC RPC endpoint (public `https://bsc-dataseed.bnbchain.org` works; QuickNode / Ankr
-  recommended for production).
+  recommended for production). Set `BSC_QUICKNODE_URL` to your full QuickNode HTTPS
+  URL if you use it so it is always **first** in the client chain (a missing
+  `BSC_RPC_URL` in the host environment otherwise falls back to a public default).
 * OpenAI API key (any tier that allows embeddings + chat).
 * Optional: Bitquery API key (https://bitquery.io), SerpAPI / Tavily key for web research.
 * Optional: a BNB Chain EOA with some tBNB (testnet) to deploy `MemeDNARegistry.sol`.

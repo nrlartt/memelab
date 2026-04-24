@@ -23,6 +23,7 @@ from .api.social import router as social_router
 from .api.trending import router as trending_router
 from .api.lab_report import router as lab_report_router
 from .api.wallet import router as wallet_router
+from .bsc_web3 import bsc_rpc_hostnames
 from .config import get_settings
 from .db import SessionLocal
 from .models import PipelineRun
@@ -496,6 +497,7 @@ def stack_info() -> dict:
             "chain_id": settings.bsc_chain_id,
             "registry": settings.has_registry,
             "anchor_address": settings.memedna_registry_address or None,
+            "bsc_json_rpc_hosts_in_order": bsc_rpc_hostnames(),
         },
         "pipeline": {
             "interval_minutes": settings.pipeline_interval_minutes,

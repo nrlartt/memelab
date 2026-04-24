@@ -14,6 +14,7 @@ from __future__ import annotations
 import asyncio
 import threading
 import time
+from urllib.parse import urlparse
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -196,6 +197,17 @@ class OnchainFourMemeClient:
             self._rebuild_web3_at(i)
             try:
                 if self.w3.is_connected():
+                    try:
+                        u = self._rpc_urls[i]
+                        host = urlparse(u).hostname or "?"
+                    except Exception:  # noqa: BLE001
+                        host = "?"
+                    logger.info(
+                        "BSC JSON-RPC active: endpoint {} of {} ({})",
+                        i + 1,
+                        len(self._rpc_urls),
+                        host,
+                    )
                     return True
             except Exception:
                 continue
