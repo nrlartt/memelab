@@ -6,6 +6,11 @@ catches the **latest Four.Meme tokens**. It wakes up every
 `ingest → embed → cluster → validate → enrich → analyse → anchor`
 pipeline, advancing the `IngestCursor` so each run only scans *new* blocks.
 
+**Multi-replica note:** on-chain ingest holds advisory lock **41**; the expensive
+LLM stages hold lock **42**. That way a second API instance can still pull new
+tokens even while the first is busy enriching — a common cause of a "stuck"
+indexed token count when only one global lock was used before.
+
 If nothing new shows up in the Explorer or Lab Reports, the scheduler is
 almost certainly not running. This doc lists the three recommended ways to
 keep it alive on Windows.

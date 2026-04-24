@@ -6,7 +6,7 @@ import asyncio
 import time
 import uuid
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from loguru import logger
@@ -26,7 +26,14 @@ from ..ai.research import WebResearcher
 from ..analytics.engine import refresh_family_metrics
 from ..blockchain.registry import RegistryClient
 from ..config import get_settings
-from ..db import SessionLocal, release_advisory_lock, session_scope, try_advisory_lock
+from ..db import (
+    ADVISORY_LOCK_PIPELINE,
+    ADVISORY_LOCK_PIPELINE_INGEST,
+    SessionLocal,
+    release_advisory_lock,
+    session_scope,
+    try_advisory_lock,
+)
 from ..models import (
     DnaFamily,
     FamilyCenter,
@@ -55,12 +62,75 @@ async def run_pipeline(
     settings = get_settings()
     lookback_hours = lookback_hours or settings.pipeline_lookback_hours
 
+    stages: dict[str, float] = {}
+    degraded = False
+    tokens_ingested = 0
+    families_updated = 0
+
+    # 1) INGEST — separate advisory lock so every replica can still pull
+    # Four.Meme events while one instance works through the slow LLM stages.
+    if not skip_ingest:
+        from ..ingestion.four_meme import ingest_four_meme_tokens
+
+        ingest_lock_sess = SessionLocal()
+        if try_advisory_lock(ingest_lock_sess, ADVISORY_LOCK_PIPELINE_INGEST):
+            try:
+                with session_scope() as session:
+                    t0 = time.time()
+                    stats = await ingest_four_meme_tokens(
+                        session,
+                        since_hours=lookback_hours,
+                        max_tokens=settings.pipeline_max_tokens_per_run,
+                    )
+                    stages["ingest"] = round(time.time() - t0, 2)
+                    tokens_ingested = stats.fetched
+            finally:
+                try:
+                    release_advisory_lock(ingest_lock_sess, ADVISORY_LOCK_PIPELINE_INGEST)
+                    ingest_lock_sess.commit()
+                except Exception:  # noqa: BLE001
+                    ingest_lock_sess.rollback()
+                finally:
+                    ingest_lock_sess.close()
+        else:
+            ingest_lock_sess.close()
+            logger.info(
+                "Ingest lock busy (another process indexing); this tick will not advance cursor"
+            )
+
+    if not settings.has_chat_llm:
+        degraded = True
+
+    # 2) EMBED / cluster / LLM — single leader; another replica may have ingested
     lock_session = SessionLocal()
-    got_lock = try_advisory_lock(lock_session)
-    lock_session.commit()
-    if not got_lock:
+    if not try_advisory_lock(lock_session, ADVISORY_LOCK_PIPELINE):
         lock_session.close()
-        raise RuntimeError("Another pipeline run holds the advisory lock")
+        with session_scope() as session:
+            now = datetime.now(tz=timezone.utc)
+            run = PipelineRun(
+                status="skipped",
+                stages={**stages, "downstream": "deferred_to_leader"},
+                tokens_ingested=tokens_ingested,
+                families_updated=0,
+                degraded=degraded,
+                finished_at=now,
+            )
+            session.add(run)
+            session.flush()
+            skip_id = run.id
+        logger.info(
+            "Downstream pipeline skipped (leader lock held); run_id={} tokens_stage={}",
+            skip_id, tokens_ingested,
+        )
+        return PipelineResult(
+            run_id=skip_id,
+            tokens_ingested=tokens_ingested,
+            families_updated=0,
+            degraded=degraded,
+            stages=stages,
+        )
+
+    lock_session.commit()
 
     with session_scope() as session:
         run = PipelineRun(status="running", stages={})
@@ -68,31 +138,7 @@ async def run_pipeline(
         session.flush()
         run_id = run.id
 
-    stages: dict[str, float] = {}
-    degraded = False
-    tokens_ingested = 0
-    families_updated = 0
-
     try:
-        # 1. INGEST
-        if not skip_ingest:
-            from ..ingestion.four_meme import ingest_four_meme_tokens
-
-            with session_scope() as session:
-                t0 = time.time()
-                stats = await ingest_four_meme_tokens(
-                    session,
-                    since_hours=lookback_hours,
-                    max_tokens=settings.pipeline_max_tokens_per_run,
-                )
-                stages["ingest"] = round(time.time() - t0, 2)
-                tokens_ingested = stats.fetched
-
-        # Degraded mode = chat LLM missing. Embeddings falling back to local
-        # semantic hash is acceptable (still produces meaningful clusters).
-        if not settings.has_chat_llm:
-            degraded = True
-
         # 2. EMBED
         with session_scope() as session:
             t0 = time.time()

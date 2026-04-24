@@ -61,8 +61,11 @@ API. The pipeline will start anchoring each finalised DNA family on-chain.
 * Front the API with a reverse proxy (Caddy or nginx) terminating TLS.
 * Run Postgres with `shared_preload_libraries = 'vector'` already set (the
   `pgvector/pgvector:pg16` image does this).
-* Pin the API to 1 replica or make the scheduler a leader-elected singleton
-  (the pipeline takes an advisory lock `pg_try_advisory_lock(42)`).
+* Multiple API replicas are OK: **ingest** uses advisory lock `41` and the
+  heavy **LLM pipeline** uses lock `42`, so one replica can index new on-chain
+  tokens while another runs clustering. Still avoid running the embedded API
+  scheduler and a separate `scheduler` container *both* with duplicate cadence
+  on the same DB unless you intend double timer frequency.
 * Configure log shipping (`loguru` writes JSON to stdout).
 * Rotate OpenAI keys; set `OPENAI_BASE_URL` to a proxy if you want rate-limit control.
 

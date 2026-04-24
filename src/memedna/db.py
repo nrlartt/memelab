@@ -53,11 +53,17 @@ def session_scope() -> Iterator[Session]:
         session.close()
 
 
-def try_advisory_lock(session: Session, key: int = 42) -> bool:
-    """Postgres advisory lock so only one pipeline runs at a time."""
+# 41 = on-chain Four.Meme ingest (serialized so cursor + upserts stay coherent).
+# 42 = LLM embed/cluster/enrich (expensive; one leader at a time).
+ADVISORY_LOCK_PIPELINE_INGEST = 41
+ADVISORY_LOCK_PIPELINE = 42
+
+
+def try_advisory_lock(session: Session, key: int = ADVISORY_LOCK_PIPELINE) -> bool:
+    """Non-blocking try on a Postgres session-level advisory key."""
     row = session.execute(text("SELECT pg_try_advisory_lock(:k)"), {"k": key}).scalar()
     return bool(row)
 
 
-def release_advisory_lock(session: Session, key: int = 42) -> None:
+def release_advisory_lock(session: Session, key: int = ADVISORY_LOCK_PIPELINE) -> None:
     session.execute(text("SELECT pg_advisory_unlock(:k)"), {"k": key})
