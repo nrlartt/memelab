@@ -201,10 +201,12 @@ async def ingest_four_meme_tokens(
     hb = int(getattr(settings, "ingest_head_blocks", 0) or 0)
     if from_block is None and latest is not None and hb > 0:
         try:
+            head_max = int(getattr(settings, "ingest_head_max_events", 24_000) or 24_000)
+            head_max = min(max_tokens, max(1000, head_max))
             head_rows = await asyncio.to_thread(
                 rpc.list_latest_tokens_head,
                 hb,
-                max_tokens,
+                head_max,
             )
             if head_rows:
                 logger.info(

@@ -137,8 +137,8 @@ _MIN_BLOCK_RANGE = 10
 # How many chunks to pull in parallel. 4 is a safe default for public RPCs;
 # bump higher (8–16) if you're pointing at QuickNode / Alchemy / Ankr-paid.
 RPC_CONCURRENCY = 4
-# Cap total logs pulled per scan to avoid runaway ingestion on first run.
-_HARD_EVENT_CAP = 20_000
+# Default max_events when callers omit it; explicit pipeline max can go higher.
+_HARD_EVENT_CAP = 120_000
 # Retained only as a hard floor for safety; the real value comes from
 # settings.bsc_rpc_safe_history_blocks and can be disabled entirely via
 # settings.bsc_rpc_archive.

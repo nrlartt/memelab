@@ -123,19 +123,21 @@ class Settings(BaseSettings):
     # the last N blocks, newest-first — same idea as /internal/ingest/quick.
     # Catches fresh launches if the incremental slice or pruned-RPC path missed
     # them. Set 0 to disable and rely on cursor-only scans.
-    ingest_head_blocks: int = Field(6000)
-    # Hard cap on TokenCreate events pulled per ingest pass. Four.Meme
-    # historically launches ~3k tokens/24h with bursts; keep real headroom
-    # so incremental runs never get starved and a cold start over 30 days
-    # can pull ~50k events in a single pass.
-    pipeline_max_tokens_per_run: int = Field(60_000)
+    ingest_head_blocks: int = Field(10_000)
+    # Max TokenCreate events pulled in the *head* pass only (small recent window).
+    # Kept below pipeline_max_tokens_per_run so a huge pipeline cap does not
+    # ask the RPC for an unrealistic number of logs in one head scan.
+    ingest_head_max_events: int = Field(24_000)
+    # Hard cap on TokenCreate events pulled per full ingest pass (incremental
+    # + head merge). Raise when you have paid RPC; watch RAM on tiny containers.
+    pipeline_max_tokens_per_run: int = Field(100_000)
     # When the on-chain cursor is tens of thousands of blocks behind, scanning
     # the whole gap in a single list_new_tokens pass can take many minutes
     # (RPC get_logs) and monopolize CPU, threads, and DB time in the same
     # process as the API. Chunk so each scheduler tick only walks at most
     # this many blocks, advancing the cursor each time. Set 0 to disable
     # (one giant catch-up, not recommended in production on free RPCs).
-    pipeline_incremental_max_blocks: int = Field(12_000)
+    pipeline_incremental_max_blocks: int = Field(18_000)
     # Cluster acceptance: minimum LLM confidence to persist a DNA Family.
     # Lowered slightly so borderline-but-meaningful narratives survive and
     # we don't drop 60 % of candidates on a marginal confidence call.

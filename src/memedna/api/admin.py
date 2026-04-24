@@ -28,7 +28,7 @@ def _check_admin(x_admin_token: str | None) -> None:
 
 class QuickIngestRequest(BaseModel):
     since_hours: int = Field(2, ge=1, le=72)
-    max_tokens: int = Field(2000, ge=50, le=20000)
+    max_tokens: int = Field(5000, ge=50, le=100_000)
     enrich_on_chain: bool = False
     head_blocks: int = Field(
         6000,
