@@ -8,15 +8,12 @@ cd /app
 export PYTHONPATH=/app/src
 uvicorn memedna.main:app --host 127.0.0.1 --port 8000 &
 
-# SSR and /api rewrites need FastAPI; avoid first-request 502 while DB warms up.
-i=0
-while [ "$i" -lt 180 ]; do
-  if curl -sf --connect-timeout 5 "http://127.0.0.1:8000/healthz" >/dev/null 2>&1; then
-    break
-  fi
-  i=$((i + 1))
-  sleep 1
-done
+# Railway (and other platforms) must see a process bound to $PORT *immediately* after
+# the container starts. A long blocking wait for FastAPI /healthz meant **nothing
+# listened on $PORT** for up to 3 minutes → edge error "Application failed to respond".
+# Give Uvicorn a moment to import and bind, then start Next. First /api calls may
+# 502 for a few seconds if the DB is slow — acceptable vs the whole site offline.
+sleep 2
 
 cd /app/next
 export NODE_ENV=production
