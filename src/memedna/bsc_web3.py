@@ -1,4 +1,4 @@
-"""Shared BSC JSON-RPC URL list and Web3 construction (primary + optional fallback)."""
+"""Shared BSC JSON-RPC URL list and Web3 construction (primary + fallbacks)."""
 
 from __future__ import annotations
 
@@ -7,11 +7,29 @@ from web3 import Web3
 from .config import get_settings
 
 
+def _parse_extra_rpc_urls(raw: str | None) -> list[str]:
+    """Split comma / semicolon / newline–separated RPC URLs; preserve order, dedupe."""
+    if not raw:
+        return []
+    seen: set[str] = set()
+    out: list[str] = []
+    for part in str(raw).replace(";", "\n").replace(",", "\n").splitlines():
+        u = part.strip().strip('"').strip("'")
+        if u and u not in seen:
+            seen.add(u)
+            out.append(u)
+    return out
+
+
 def bsc_rpc_url_chain() -> list[str]:
-    """Primary first (typically public), then optional fallback (e.g. Alchemy), deduplicated."""
+    """Primary → first fallback → extra URLs (QuickNode, spare Alchemy, …). Deduplicated."""
     s = get_settings()
     out: list[str] = []
-    for u in (s.bsc_rpc_url, s.bsc_rpc_fallback_url or ""):
+    for u in (
+        s.bsc_rpc_url,
+        s.bsc_rpc_fallback_url or "",
+        *_parse_extra_rpc_urls(s.bsc_rpc_extra_urls),
+    ):
         t = (u or "").strip()
         if t and t not in out:
             out.append(t)
@@ -41,7 +59,12 @@ def connect_first_bsc_web3(*, timeout: float) -> Web3:
 
 
 def rpc_error_suggests_failover(exc: BaseException) -> bool:
-    """True when trying the next URL might help (timeout, connect, 5xx, JSON-RPC -32002)."""
+    """True when trying the next JSON-RPC URL might help.
+
+    Includes transient network errors, rate limits, and *provider-side*
+    auth/credit issues (e.g. Alchemy/QuickNode 401/403/429) where another key
+    in BSC_RPC_EXTRA_URLS can succeed.
+    """
     m = str(exc).lower()
     if "-32701" in m or "history has been pruned" in m:
         return False
@@ -62,5 +85,21 @@ def rpc_error_suggests_failover(exc: BaseException) -> bool:
         "no response",
         "max retries",
         "remotedisconnected",
+        # rate / quota (paid provider exhausted or throttled)
+        "429",
+        "rate limit",
+        "too many requests",
+        "throttl",
+        "quota",
+        "exceed",
+        "credits",  # "compute units" / dashboard wording
+        # auth or billing (wrong key, disabled app, plan limits)
+        " 401 ",
+        " 403 ",
+        "unauthorized",
+        "forbidden",
+        "invalid api key",
+        "must be authenticated",
+        "insufficient",
     )
     return any(x in m for x in markers)
