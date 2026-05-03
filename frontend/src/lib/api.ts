@@ -17,6 +17,14 @@ import type {
 /** JSON routes are mounted under this path on FastAPI (see ``main.py``). */
 export const API_PREFIX = "/api";
 
+/** Origin for server-side fetch when the UI and API share one container. */
+function _serverSideApiOrigin(): string {
+  return (
+    process.env.MEMEDNA_INTERNAL_API_ORIGIN?.replace(/\/$/, "") ??
+    "http://127.0.0.1:8000"
+  );
+}
+
 /**
  * Host-only base for ``fetch`` in this module.
  * Browsers can use same-origin relative ``/api``; Node (RSC/SSR) requires absolute URLs.
@@ -28,14 +36,16 @@ function getApiBase(): string {
   }
   if (raw === "") {
     if (typeof window === "undefined") {
-      return (
-        process.env.MEMEDNA_INTERNAL_API_ORIGIN?.replace(/\/$/, "") ??
-        "http://127.0.0.1:8000"
-      );
+      return _serverSideApiOrigin();
     }
     return "";
   }
-  return "http://127.0.0.1:8000";
+  // Build omitted NEXT_PUBLIC_API_BASE: unified deploy (Next + FastAPI) must use
+  // same-origin ``/api`` in the browser — not localhost (that targets the user PC).
+  if (typeof window !== "undefined") {
+    return "";
+  }
+  return _serverSideApiOrigin();
 }
 
 /**
@@ -47,7 +57,10 @@ export function publicApiOrigin(): string {
   if (typeof raw === "string" && raw.trim().length > 0) {
     return raw.replace(/\/$/, "");
   }
-  return "http://127.0.0.1:8000";
+  if (typeof window !== "undefined") {
+    return "";
+  }
+  return _serverSideApiOrigin();
 }
 
 /** Build a browser-safe URL to a JSON route (mounted under ``/api`` on FastAPI). */
@@ -192,7 +205,8 @@ export const api = {
 
   labReport: async (body: { mode: "wallet" | "token"; address: string }) => {
     const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), 130_000);
+    const LAB_REPORT_FETCH_MS = 190_000;
+    const timer = setTimeout(() => ctrl.abort(), LAB_REPORT_FETCH_MS);
     let res: Response;
     try {
       res = await fetch(jsonUrl("/lab-report"), {
@@ -207,7 +221,7 @@ export const api = {
     } catch (e) {
       if (e instanceof DOMException && e.name === "AbortError") {
         throw new Error(
-          "Lab Report timed out (130s). The API may be busy; retry in a minute."
+          "Lab Report timed out (~3m). The API may be busy; retry in a minute."
         );
       }
       throw e;

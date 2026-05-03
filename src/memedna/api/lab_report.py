@@ -520,7 +520,7 @@ async def post_lab_report(
     # Generous enough for a cold RPC + lazy-ingest on a new token, but still
     # bounded so a wedged dependency cannot hang forever. (Was 75s; users
     # still hit it when GoPlus+DexScreener stacked — 120s is a safety margin.)
-    _FACTS_BUDGET_S = 120.0
+    _FACTS_BUDGET_S = 150.0
     try:
         if mode == "wallet":
             facts = await asyncio.wait_for(

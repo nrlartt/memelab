@@ -9,7 +9,11 @@
   `BSC_RPC_URL` in the host environment otherwise falls back to a public default).
 * OpenAI API key (any tier that allows embeddings + chat).
 * Optional: Bitquery API key (https://bitquery.io), SerpAPI / Tavily key for web research.
-* Optional: a BNB Chain EOA with some tBNB (testnet) to deploy `MemeDNARegistry.sol`.
+* The unified Docker/Railway image builds Next with `NEXT_PUBLIC_API_BASE` empty so the
+  browser calls same-origin `/api/*`. If you rebuild the frontend without that, ensure
+  the client does not default to `http://127.0.0.1:8000` in production (Lab Report POST
+  would target the visitor's machine). Optional runtime: `MEMEDNA_INTERNAL_API_ORIGIN=http://127.0.0.1:8000`
+  for the Next server route `app/api/lab-report` when proxying to uvicorn inside the container.
 
 ## 2. Local / single-host
 
